@@ -115,12 +115,14 @@
     cv.height = Math.round(V.h * V.dpr);
     V.portrait = V.h > V.w * 1.05;
     const TL = 2 * (HL + CW + FRAME), TW = 2 * (HW + CW + FRAME);
-    const m = Math.min(V.w, V.h) < 500 ? 4 : 14;
-    V.s = V.portrait
-      ? Math.min((V.w - 2 * m) / TW, (V.h - 2 * m) / TL)
-      : Math.min((V.w - 2 * m) / TL, (V.h - 2 * m) / TW);
+    const small = Math.min(V.w, V.h) < 500;
+    const m = small ? 4 : 14;
+    // franjas reservadas para el resumen (arriba) y el aviso (abajo), así no tapan las troneras
+    const mt = small ? 30 : 42, mb = small ? 24 : 34;
+    const aw = V.w - 2 * m, ah = V.h - mt - mb;
+    V.s = V.portrait ? Math.min(aw / TW, ah / TL) : Math.min(aw / TL, ah / TW);
     V.cx = V.w / 2;
-    V.cy = V.h / 2;
+    V.cy = mt + ah / 2;
     S.dirty = true;
   }
 
@@ -511,7 +513,7 @@
   }
 
   // ---------------------------------------------------------------- entrada en la mesa
-  let drag = null, aiming = false;
+  let drag = null, aiming = null;
 
   function eventWorld(e) {
     const r = cv.getBoundingClientRect();
@@ -547,8 +549,12 @@
       return;
     }
     if (S.mode === 'aim') {
-      aiming = true;
-      setAimTo(x, y);
+      // Con el dedo el giro es relativo (sin saltos y sin tapar la bola objetivo);
+      // un toque sin deslizar apunta directamente a ese punto.
+      const c = S.balls[0];
+      const rel = e.pointerType === 'touch';
+      aiming = { rel, x0: e.clientX, y0: e.clientY, moved: false, a0: Math.atan2(y - c.y, x - c.x) };
+      if (!rel) setAimTo(x, y);
     }
   });
 
@@ -561,12 +567,25 @@
       drag.ball.x = clampX(nx);
       drag.ball.y = clampY(ny);
       changed();
-    } else {
+    } else if (!aiming.rel) {
       setAimTo(x, y);
+    } else {
+      if (!aiming.moved && Math.hypot(e.clientX - aiming.x0, e.clientY - aiming.y0) < 8) return;
+      aiming.moved = true;
+      const c = S.balls[0];
+      if (Math.hypot(x - c.x, y - c.y) < R * 1.5) return;
+      const a = Math.atan2(y - c.y, x - c.x);
+      const da = Math.atan2(Math.sin(a - aiming.a0), Math.cos(a - aiming.a0));
+      aiming.a0 = a;
+      rotate(da);
     }
   });
 
-  function endPointer() {
+  function endPointer(e) {
+    if (aiming && aiming.rel && !aiming.moved && e.type === 'pointerup') {
+      const [x, y] = eventWorld(e);
+      setAimTo(x, y);
+    }
     if (drag) {
       const b = drag.ball;
       if (drag.out) {
@@ -579,7 +598,7 @@
       drag = null;
       changed();
     }
-    aiming = false;
+    aiming = null;
   }
   cv.addEventListener('pointerup', endPointer);
   cv.addEventListener('pointercancel', endPointer);

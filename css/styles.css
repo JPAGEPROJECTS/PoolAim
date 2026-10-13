@@ -22,6 +22,7 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -112,7 +113,10 @@ select.tbtn option { background: var(--panel); color: var(--fg); }
 #hint {
   position: absolute;
   left: 50%;
-  bottom: 40px;
+  bottom: 6px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   transform: translateX(-50%);
   padding: 4px 10px;
   border-radius: 8px;
@@ -129,7 +133,7 @@ select.tbtn option { background: var(--panel); color: var(--fg); }
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: 8px;
+  bottom: 40px;
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
@@ -194,6 +198,7 @@ select.tbtn option { background: var(--panel); color: var(--fg); }
 .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .lbl { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 12px; }
 .lbl output { color: var(--fg); font-variant-numeric: tabular-nums; }
+.lbl span { opacity: .7; }
 .small { color: var(--muted); font-size: 12px; text-align: center; }
 
 input[type=range] {
@@ -251,14 +256,16 @@ input[type=range]::-moz-range-thumb {
     var(--panel-2);
   color: var(--muted);
   font-size: 12px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   touch-action: none;
   cursor: ew-resize;
   white-space: nowrap;
   overflow: hidden;
 }
-#strip.active { border-color: var(--accent); color: var(--accent); }
+#strip output { color: var(--fg); font-variant-numeric: tabular-nums; margin: 0 6px; }
+#strip.active, #strip.active output { border-color: var(--accent); color: var(--accent); }
 
 #btnShoot {
   min-height: 48px;
@@ -297,7 +304,7 @@ input[type=range]::-moz-range-thumb {
 .card[hidden] { display: none; }
 .card-h { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
 .card p { margin: 0; text-align: left; }
-.opt { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.opt { display: flex; align-items: center; gap: 8px; justify-content: space-between; min-height: 32px; }
 .opt input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; order: -1; }
 .opt:has(input[type=checkbox]) { justify-content: flex-start; }
 .opt select {
@@ -315,23 +322,46 @@ input[type=range]::-moz-range-thumb {
     grid-template-areas: "bar" "stage" "panel";
   }
   #toolbar { padding: 6px 8px; gap: 5px; }
-  .tbtn { min-height: 36px; padding: 0 6px; font-size: 13px; }
+  .tbtn { min-height: 34px; padding: 0 6px; font-size: 13px; }
   #panel { padding: 8px 10px 10px; gap: 8px; overflow: visible; }
-  .ctrl { gap: 10px; }
-  #spin { width: 100px; height: 100px; }
+  .ctrl { gap: 10px; align-items: center; }
+  #spin { width: 96px; height: 96px; }
+  .mini { padding: 3px 8px; font-size: 11px; }
   .col { gap: 6px; }
+  input[type=range] { height: 28px; }
+  .aimlbl { display: none; }
+  .aimrow { grid-template-columns: 44px 1fr 44px; }
+  .rot, #strip { height: 40px; }
   #btnShoot { min-height: 46px; }
   .help { display: none; }
   .card { top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
-  #summary { font-size: 12px; top: 6px; }
-  #hint { bottom: 36px; }
-  .chip { width: 22px; height: 22px; font-size: 9px; }
+  #summary { font-size: 12px; top: 4px; padding: 3px 10px; }
+  #hint { bottom: 2px; font-size: 11px; padding: 2px 8px; }
+  /* la mesa deja hueco a los lados: las bolas fuera van en columna a la derecha */
+  #tray {
+    left: auto;
+    right: 4px;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(8, auto);
+  }
+  .chip { width: 24px; height: 24px; font-size: 9px; }
   .chip span { width: 12px; height: 12px; line-height: 12px; }
 }
 
 @media (orientation: portrait) and (max-width: 360px) {
   .tbtn span { display: none; }
-  #spin { width: 88px; height: 88px; }
+  #spin { width: 84px; height: 84px; }
+  .aimrow { grid-template-columns: 38px 1fr 38px; }
+}
+
+@media (orientation: portrait) and (max-height: 600px) {
+  #spin { width: 76px; height: 76px; }
+  .rot, #strip { height: 36px; }
+  #btnShoot { min-height: 40px; }
 }
 
 /* ---------- móvil horizontal: columna lateral estrecha ---------- */
@@ -345,8 +375,12 @@ input[type=range]::-moz-range-thumb {
   .spinbox { flex-direction: row; justify-content: center; }
   #spin { width: 76px; height: 76px; }
   .col { gap: 5px; }
-  .rot, #strip { height: 34px; }
-  #btnShoot { min-height: 40px; }
+  .aimlbl { display: none; }
+  .rot, #strip { height: 36px; }
+  #btnShoot { min-height: 42px; }
   .help { display: none; }
-  .card { top: 8px; }
+  .card { top: 8px; max-height: calc(100% - 16px); overflow: auto; }
+  #summary { font-size: 12px; top: 4px; padding: 3px 10px; }
+  #hint { bottom: 2px; font-size: 11px; padding: 2px 8px; }
+  #tray { bottom: 28px; }
 }

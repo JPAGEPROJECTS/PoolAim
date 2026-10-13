@@ -40,16 +40,17 @@
         <div class="col">
           <label class="lbl" for="power">Fuerza <output id="powOut"></output></label>
           <input type="range" id="power" min="1" max="100" step="1">
-          <div class="lbl">Dirección <output id="aimOut"></output></div>
+          <div class="lbl aimlbl">Dirección <span>arrastra la barra para ajuste fino</span></div>
           <div class="aimrow">
             <button class="rot" data-rot="1" title="Girar a la izquierda (←)">⟲</button>
-            <div id="strip" title="Arrastra para ajuste fino">‹ ajuste fino ›</div>
+            <div id="strip" title="Arrastra para ajuste fino">‹ <output id="aimOut"></output> ›</div>
             <button class="rot" data-rot="-1" title="Girar a la derecha (→)">⟳</button>
           </div>
           <button id="btnShoot">Tirar</button>
         </div>
       </div>
       <div class="help">
+        <b>Táctil:</b> desliza en la mesa para girar el taco · toca un punto para apuntar ahí<br>
         <b>Ratón:</b> arrastra en la mesa para apuntar · rueda = ajuste fino (Shift = grueso)<br>
         <b>Teclado:</b> ← → girar (Shift ×10, Alt ÷10) · ↑ ↓ fuerza · Espacio tirar · M mover · Ctrl+Z deshacer
       </div>
