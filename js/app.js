@@ -1290,30 +1290,48 @@
   });
 
   // ---------------------------------------------------------------- instalar como aplicación
-  // Chrome, Edge y Android avisan con beforeinstallprompt; en iOS solo se puede desde Safari a mano.
+  // El botón está siempre a la vista mientras no se use como app instalada. Si el navegador
+  // ofrece su aviso (Chrome, Edge, Android) se usa; si no, se explican los pasos a mano.
   const btnInstall = $('#btnInstall'), installCard = $('#install');
   const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let installEvt = null;
+
+  function installSteps() {
+    if (location.protocol === 'file:') {
+      return '<p>Ahora la tienes abierta como archivo local, y así el navegador no permite instalarla. Ábrela desde su dirección web (<b>https://…</b>) y vuelve a pulsar <b>Instalar app</b>.</p>';
+    }
+    if (isIOS) {
+      return '<p>En iPhone o iPad, desde <b>Safari</b>:<br>1. Toca <b>Compartir</b> (el cuadrado con la flecha hacia arriba).<br>2. Elige <b>Añadir a pantalla de inicio</b>.<br>3. Toca <b>Añadir</b>.</p>';
+    }
+    if (/android/i.test(ua)) {
+      return '<p>En Android, desde <b>Chrome</b>:<br>1. Toca el menú <b>⋮</b> arriba a la derecha.<br>2. Elige <b>Instalar aplicación</b> o <b>Añadir a pantalla de inicio</b>.<br>3. Confirma con <b>Instalar</b>.</p>';
+    }
+    return '<p>En el ordenador, con <b>Chrome</b> o <b>Edge</b>:<br>1. Pulsa el icono de instalar (⊕ o una pantalla con flecha) a la derecha de la barra de direcciones,<br>o abre el menú <b>⋮</b> / <b>…</b> → <b>Instalar PoolAim</b> (en Edge: <b>Aplicaciones → Instalar este sitio como aplicación</b>).<br>2. Confirma con <b>Instalar</b>.</p>';
+  }
+
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     installEvt = e;
-    btnInstall.hidden = false;
   });
   window.addEventListener('appinstalled', () => {
     installEvt = null;
     btnInstall.hidden = true;
     installCard.hidden = true;
   });
-  if (isIOS && !standalone()) btnInstall.hidden = false;
+  btnInstall.hidden = standalone();
   btnInstall.addEventListener('click', async e => {
     e.stopPropagation();
-    if (!installEvt) { installCard.hidden = !installCard.hidden; return; }
-    const evt = installEvt;
-    installEvt = null;
-    btnInstall.hidden = true;   // el aviso solo se puede usar una vez; el navegador lo repite si se rechaza
-    evt.prompt();
-    await evt.userChoice;
+    if (installEvt) {
+      const evt = installEvt;
+      installEvt = null;   // el aviso solo se puede usar una vez; el navegador lo vuelve a ofrecer más tarde
+      evt.prompt();
+      await evt.userChoice;
+      return;
+    }
+    $('#installSteps').innerHTML = installSteps();
+    installCard.hidden = !installCard.hidden;
   });
   $('#installClose').addEventListener('click', () => { installCard.hidden = true; });
   document.addEventListener('pointerdown', e => {

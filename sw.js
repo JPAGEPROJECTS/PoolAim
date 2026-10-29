@@ -4,7 +4,7 @@
  * Responde desde la caché y la actualiza en segundo plano; la versión nueva se ve
  * en la siguiente apertura. Sube VERSION si cambia la lista de archivos.
  */
-const VERSION = 'poolaim-v3';
+const VERSION = 'poolaim-v4';
 const FILES = [
   './',
   'index.html',

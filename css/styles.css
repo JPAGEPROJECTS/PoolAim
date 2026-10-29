@@ -111,6 +111,25 @@ select.tbtn option { background: var(--panel); color: var(--fg); }
 #summary .ok { color: var(--ok); font-weight: 600; }
 #summary .bad { color: var(--danger); font-weight: 600; }
 
+#btnInstall {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  cursor: pointer;
+}
+#btnInstall[hidden] { display: none; }
+#install p { font-size: 13px; line-height: 1.55; color: var(--muted); }
+#install p b { color: var(--fg); }
+
 #hint {
   position: absolute;
   left: 50%;
@@ -387,6 +406,7 @@ input[type=range]::-moz-range-thumb {
   .tinfo { font-size: 11px; min-height: 2.6em; }
   #summary { font-size: 12px; top: 4px; padding: 3px 10px; }
   #hint { bottom: 2px; font-size: 11px; padding: 2px 8px; }
+  #btnInstall { top: auto; bottom: 26px; left: 6px; padding: 5px 10px; font-size: 12px; }
   /* la mesa deja hueco a los lados: las bolas fuera van en columna a la derecha */
   #tray {
     left: auto;
@@ -403,7 +423,7 @@ input[type=range]::-moz-range-thumb {
 }
 
 @media (orientation: portrait) and (max-width: 480px) {
-  #btnUndo span, #btnOpts span, #btnInstall span { display: none; }
+  #btnUndo span, #btnOpts span { display: none; }
 }
 
 @media (orientation: portrait) and (max-width: 360px) {
