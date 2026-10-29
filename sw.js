@@ -1,10 +1,10 @@
 'use strict';
 /*
  * Service worker: guarda la app en caché para que funcione sin conexión.
- * Responde desde la caché y la actualiza en segundo plano; la versión nueva se ve
- * en la siguiente apertura. Sube VERSION si cambia la lista de archivos.
+ * Primero intenta la red (así siempre se ve la última versión) y guarda la respuesta;
+ * sin conexión responde desde la caché. Sube VERSION si cambia la lista de archivos.
  */
-const VERSION = 'poolaim-v4';
+const VERSION = 'poolaim-v5';
 const FILES = [
   './',
   'index.html',
@@ -37,18 +37,15 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.open(VERSION).then(async cache => {
       const key = req.mode === 'navigate' ? './' : req;
-      const cached = await cache.match(key, { ignoreSearch: true });
-      const fresh = fetch(req)
-        .then(res => {
-          if (res.ok) cache.put(key, res.clone());
-          return res;
-        })
-        .catch(() => cached);
-      if (cached) {
-        e.waitUntil(fresh.catch(() => {}));
-        return cached;
+      try {
+        const res = await fetch(req, { cache: 'no-cache' });
+        if (res.ok) cache.put(key, res.clone());
+        return res;
+      } catch (err) {
+        const cached = await cache.match(key, { ignoreSearch: true });
+        if (cached) return cached;
+        throw err;
       }
-      return fresh;
     })
   );
 });

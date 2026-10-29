@@ -1296,7 +1296,11 @@
   const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const ua = navigator.userAgent;
   const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  let installEvt = null;
+  let installEvt = null, installed = false;
+  // Chrome en Android puede decir si la app ya está instalada en este teléfono
+  if (navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps().then(apps => { installed = apps.length > 0; }).catch(() => {});
+  }
 
   function installSteps() {
     if (location.protocol === 'file:') {
@@ -1306,7 +1310,10 @@
       return '<p>En iPhone o iPad, desde <b>Safari</b>:<br>1. Toca <b>Compartir</b> (el cuadrado con la flecha hacia arriba).<br>2. Elige <b>Añadir a pantalla de inicio</b>.<br>3. Toca <b>Añadir</b>.</p>';
     }
     if (/android/i.test(ua)) {
-      return '<p>En Android, desde <b>Chrome</b>:<br>1. Toca el menú <b>⋮</b> arriba a la derecha.<br>2. Elige <b>Instalar aplicación</b> o <b>Añadir a pantalla de inicio</b>.<br>3. Confirma con <b>Instalar</b>.</p>';
+      const found = '<p><b>Si Chrome dice que ya está instalada</b>, está en el cajón de aplicaciones:<br>1. Desliza hacia arriba en la pantalla de inicio y busca <b>PoolAim</b>.<br>2. Mantenla pulsada y arrástrala a la pantalla de inicio.<br>También puedes abrirla desde el menú <b>⋮</b> de Chrome → <b>Abrir en la aplicación</b>.</p>' +
+        '<p>¿No aparece? Ve a <b>Ajustes → Aplicaciones → PoolAim → Desinstalar</b> y vuelve a instalarla desde aquí.</p>';
+      const steps = '<p>En Android, desde <b>Chrome</b>:<br>1. Toca el menú <b>⋮</b> arriba a la derecha.<br>2. Elige <b>Instalar aplicación</b> o <b>Añadir a pantalla de inicio</b>.<br>3. Confirma con <b>Instalar</b>.</p>';
+      return installed ? found : steps + found;
     }
     return '<p>En el ordenador, con <b>Chrome</b> o <b>Edge</b>:<br>1. Pulsa el icono de instalar (⊕ o una pantalla con flecha) a la derecha de la barra de direcciones,<br>o abre el menú <b>⋮</b> / <b>…</b> → <b>Instalar PoolAim</b> (en Edge: <b>Aplicaciones → Instalar este sitio como aplicación</b>).<br>2. Confirma con <b>Instalar</b>.</p>';
   }

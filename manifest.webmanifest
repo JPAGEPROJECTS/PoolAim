@@ -3,12 +3,16 @@
   "short_name": "PoolAim",
   "description": "Simulador de billar con predicción de trayectorias",
   "lang": "es",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0d1311",
   "theme_color": "#0d1311",
+  "related_applications": [
+    { "platform": "webapp", "url": "https://jpageprojects.github.io/PoolAim/manifest.webmanifest" }
+  ],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
