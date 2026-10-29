@@ -403,7 +403,7 @@ input[type=range]::-moz-range-thumb {
 }
 
 @media (orientation: portrait) and (max-width: 480px) {
-  #btnUndo span, #btnOpts span { display: none; }
+  #btnUndo span, #btnOpts span, #btnInstall span { display: none; }
 }
 
 @media (orientation: portrait) and (max-width: 360px) {

@@ -28,6 +28,7 @@
       </select>
       <button id="btnTrain" class="tbtn" aria-pressed="false" title="Entrenador de tiros a banda (B)">◎ <span>Bandas</span></button>
       <button id="btnOpts" class="tbtn" aria-expanded="false" title="Opciones">⚙ <span>Opciones</span></button>
+      <button id="btnInstall" class="tbtn" title="Instalar PoolAim como aplicación" hidden>⤓ <span>Instalar</span></button>
     </div>
 
     <div id="stage">
@@ -112,6 +113,13 @@
       <label class="opt"><input type="checkbox" id="optSquirt"> Desvío de la blanca por efecto (squirt)</label>
       <label class="opt"><input type="checkbox" id="optMirror"> Bandas: mostrar el sistema del espejo</label>
       <p class="small">La predicción usa el mismo motor físico que el tiro: deslizamiento y rodadura en el paño, efecto alto/bajo/lateral, transferencia de efecto entre bolas (throw) y bandas.</p>
+    </div>
+    <div id="install" class="card" hidden>
+      <div class="card-h">Instalar PoolAim <button id="installClose" class="mini" aria-label="Cerrar">✕</button></div>
+      <p class="small">En iPhone o iPad, desde Safari:</p>
+      <p>1. Toca el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).<br>
+         2. Elige <b>Añadir a pantalla de inicio</b>.<br>
+         3. Toca <b>Añadir</b>. PoolAim se abrirá a pantalla completa y funcionará sin conexión.</p>
     </div>
     <div id="tips" class="card" hidden>
       <div class="card-h">Tiros a banda en la mesa real <button id="tipsClose" class="mini" aria-label="Cerrar">✕</button></div>

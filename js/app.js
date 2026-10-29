@@ -1289,6 +1289,37 @@
     if (!tipsCard.hidden && !tipsCard.contains(e.target) && e.target !== $('#trTips')) tipsCard.hidden = true;
   });
 
+  // ---------------------------------------------------------------- instalar como aplicación
+  // Chrome, Edge y Android avisan con beforeinstallprompt; en iOS solo se puede desde Safari a mano.
+  const btnInstall = $('#btnInstall'), installCard = $('#install');
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installEvt = e;
+    btnInstall.hidden = false;
+  });
+  window.addEventListener('appinstalled', () => {
+    installEvt = null;
+    btnInstall.hidden = true;
+    installCard.hidden = true;
+  });
+  if (isIOS && !standalone()) btnInstall.hidden = false;
+  btnInstall.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!installEvt) { installCard.hidden = !installCard.hidden; return; }
+    const evt = installEvt;
+    installEvt = null;
+    btnInstall.hidden = true;   // el aviso solo se puede usar una vez; el navegador lo repite si se rechaza
+    evt.prompt();
+    await evt.userChoice;
+  });
+  $('#installClose').addEventListener('click', () => { installCard.hidden = true; });
+  document.addEventListener('pointerdown', e => {
+    if (!installCard.hidden && !installCard.contains(e.target) && !btnInstall.contains(e.target)) installCard.hidden = true;
+  });
+
   // ---------------------------------------------------------------- teclado
   window.addEventListener('keydown', e => {
     if (e.target instanceof HTMLSelectElement) return;
