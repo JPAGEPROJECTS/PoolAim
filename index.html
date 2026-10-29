@@ -26,6 +26,7 @@
         <option value="practice">Práctica (1 bola)</option>
         <option value="empty">Vacía (solo blanca)</option>
       </select>
+      <button id="btnTrain" class="tbtn" aria-pressed="false" title="Entrenador de tiros a banda (B)">◎ <span>Bandas</span></button>
       <button id="btnOpts" class="tbtn" aria-expanded="false" title="Opciones">⚙ <span>Opciones</span></button>
     </div>
 
@@ -37,6 +38,41 @@
     </div>
 
     <div id="panel">
+      <section id="trainer" hidden aria-label="Entrenador de bandas">
+        <div class="trow">
+          <select id="trKind" class="tsel" aria-label="Tipo de tiro">
+            <option value="0-0">Directo: blanca → bola → tronera</option>
+            <option value="0-1">Banda: bola → 1 banda → tronera</option>
+            <option value="0-2">Banda: bola → 2 bandas → tronera</option>
+            <option value="0-3">Banda: bola → 3 bandas → tronera</option>
+            <option value="1-0">Kick: blanca → 1 banda → bola</option>
+            <option value="2-0">Kick: blanca → 2 bandas → bola</option>
+            <option value="3-0">Kick: blanca → 3 bandas → bola</option>
+            <option value="1-1">Kick 1 banda + bola 1 banda</option>
+            <option value="2-1">Kick 2 bandas + bola 1 banda</option>
+            <option value="1-2">Kick 1 banda + bola 2 bandas</option>
+          </select>
+          <select id="trPocket" class="tsel" aria-label="Tronera objetivo">
+            <option value="-1">Tronera: cualquiera</option>
+            <option value="0">Tronera 1</option>
+            <option value="1">Tronera 2</option>
+            <option value="2">Tronera 3</option>
+            <option value="3">Tronera 4</option>
+            <option value="4">Tronera 5</option>
+            <option value="5">Tronera 6</option>
+          </select>
+        </div>
+        <div class="tbtns">
+          <button id="trNew" class="mini" title="Coloca una posición nueva para este tipo de tiro (N)">Nuevo</button>
+          <button id="trSol" class="mini" aria-pressed="false" title="Mostrar u ocultar la solución">Solución</button>
+          <button id="trExam" class="mini" aria-pressed="false" title="Oculta la predicción y la solución hasta que tires">Examen</button>
+          <button id="trNext" class="mini" title="Ver otra solución">Otra ›</button>
+          <button id="trUse" class="mini" title="Poner el taco en la dirección de la solución">Apuntar</button>
+          <button id="trRetry" class="mini" title="Volver a la posición del último tiro (R)">Repetir</button>
+        </div>
+        <div id="trInfo" class="tinfo" aria-live="polite"></div>
+        <button id="trTips" class="link">Cómo aplicarlo en una mesa real</button>
+      </section>
       <div class="ctrl">
         <div class="spinbox">
           <canvas id="spin" aria-label="Punto de golpe en la bola blanca"></canvas>
@@ -57,7 +93,8 @@
       <div class="help">
         <b>Táctil:</b> desliza en la mesa para girar el taco · toca un punto para apuntar ahí<br>
         <b>Ratón:</b> arrastra en la mesa para apuntar · rueda = ajuste fino (Shift = grueso)<br>
-        <b>Teclado:</b> ← → girar (Shift ×10, Alt ÷10) · ↑ ↓ fuerza · Espacio tirar · M mover · Ctrl+Z deshacer
+        <b>Teclado:</b> ← → girar (Shift ×10, Alt ÷10) · ↑ ↓ fuerza · Espacio tirar · M mover · Ctrl+Z deshacer<br>
+        <b>Bandas:</b> B activar · N nuevo ejercicio · R repetir
       </div>
     </div>
 
@@ -73,11 +110,22 @@
       <label class="opt"><input type="checkbox" id="optObj"> Trayectoria de bolas objetivo</label>
       <label class="opt"><input type="checkbox" id="optFinals"> Posición final de las bolas</label>
       <label class="opt"><input type="checkbox" id="optSquirt"> Desvío de la blanca por efecto (squirt)</label>
+      <label class="opt"><input type="checkbox" id="optMirror"> Bandas: mostrar el sistema del espejo</label>
       <p class="small">La predicción usa el mismo motor físico que el tiro: deslizamiento y rodadura en el paño, efecto alto/bajo/lateral, transferencia de efecto entre bolas (throw) y bandas.</p>
+    </div>
+    <div id="tips" class="card" hidden>
+      <div class="card-h">Tiros a banda en la mesa real <button id="tipsClose" class="mini" aria-label="Cerrar">✕</button></div>
+      <p><b>1. Elige la ruta.</b> Si la bola objetivo está tapada, la blanca va primero a la banda (<i>kick</i>). Si la bola no tiene tiro directo, mándala tú a la banda (<i>banda</i>). Cuenta las bandas antes de tirar.</p>
+      <p><b>2. Sistema del espejo.</b> La banda funciona como un espejo: imagina la tronera (o la bola fantasma, en un kick) reflejada al otro lado de la banda, a la misma distancia, y apunta a ese reflejo. Donde tu línea cruza la banda está el punto de contacto. Para dos bandas, refleja dos veces. En la mesa lo verás en azul.</p>
+      <p><b>3. Mira los diamantes, no la banda.</b> Prolonga la línea de tiro hasta la fila de diamantes de la madera y cuenta desde la esquina, en medios y cuartos de diamante. Los marcadores rosas te dan ese número: es lo que vas a buscar con la vista en tu mesa.</p>
+      <p><b>4. La banda real no es un espejo perfecto.</b> La fricción y el efecto cambian el rebote. Compara «Espejo» con «Real» en cada solución y aprende la corrección. Con efecto lateral a favor del giro (corrido) el ángulo se abre; en contra, se cierra. Al cortar la bola le transmites algo de efecto, y eso también desvía la banda.</p>
+      <p><b>5. Velocidad constante.</b> Practica siempre con una fuerza media y repetible: la corrección que memorices vale para esa velocidad. Con mucha fuerza la banda se hunde y el rebote cambia (el simulador no modela ese hundimiento, así que en tu mesa compruébalo).</p>
+      <p><b>6. Rutina.</b> Activa <b>Examen</b>, pulsa <b>Nuevo</b>, calcula con el espejo y los diamantes, tira y lee la corrección en grados y diamantes. Pulsa <b>Repetir</b> hasta acertar. Luego monta la misma posición en tu mesa y repítela.</p>
     </div>
   </div>
 
   <script src="js/physics.js"></script>
+  <script src="js/bank.js"></script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {

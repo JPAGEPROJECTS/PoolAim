@@ -305,6 +305,6 @@
 
   global.Pool = {
     G, L, W, HL, HW, R, CW, FRAME, DT, MAX_SPEED, SQUIRT_K,
-    RAILS, POCKETS, makeBall, cloneBalls, strike, step, simulate,
+    CORNER, SIDE, RAILS, POCKETS, makeBall, cloneBalls, strike, step, simulate,
   };
 })(window);

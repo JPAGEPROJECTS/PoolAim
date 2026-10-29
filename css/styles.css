@@ -60,6 +60,7 @@ button, select { touch-action: manipulation; }
   cursor: pointer;
   white-space: nowrap;
 }
+#toolbar .tbtn { flex-basis: 30%; min-width: 0; }
 .tbtn:hover { border-color: #3d5149; }
 .tbtn[aria-pressed="true"], .tbtn[aria-expanded="true"] {
   background: var(--accent);
@@ -285,6 +286,50 @@ input[type=range]::-moz-range-thumb {
 
 .help { color: var(--muted); font-size: 12px; line-height: 1.6; }
 
+/* ---------- entrenador de bandas ---------- */
+#trainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+#trainer[hidden] { display: none; }
+.trow { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 6px; }
+.tsel {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.tsel option { background: var(--panel); color: var(--fg); }
+.tbtns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tbtns .mini { min-height: 30px; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.mini:disabled { opacity: .45; cursor: default; }
+.tinfo { min-height: 2.9em; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.tinfo b { color: var(--fg); font-weight: 600; }
+.tinfo .ok { color: var(--ok); font-weight: 600; }
+.tinfo .bad { color: var(--danger); font-weight: 600; }
+.tinfo .sol { color: #ff5bd1; }
+.tinfo .blue { color: #7cc7ff; }
+.link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+#tips { width: min(420px, calc(100vw - 24px)); max-height: min(75vh, 620px); overflow: auto; }
+#tips p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+#tips p b { color: var(--fg); }
+
 /* ---------- opciones ---------- */
 .card {
   position: fixed;
@@ -322,6 +367,7 @@ input[type=range]::-moz-range-thumb {
     grid-template-areas: "bar" "stage" "panel";
   }
   #toolbar { padding: 6px 8px; gap: 5px; }
+  #toolbar .tbtn { flex-basis: auto; }
   .tbtn { min-height: 34px; padding: 0 6px; font-size: 13px; }
   #panel { padding: 8px 10px 10px; gap: 8px; overflow: visible; }
   .ctrl { gap: 10px; align-items: center; }
@@ -335,6 +381,10 @@ input[type=range]::-moz-range-thumb {
   #btnShoot { min-height: 46px; }
   .help { display: none; }
   .card { top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #trainer { gap: 5px; padding-bottom: 8px; }
+  .tsel { min-height: 32px; font-size: 12px; }
+  .tbtns .mini { min-height: 28px; }
+  .tinfo { font-size: 11px; min-height: 2.6em; }
   #summary { font-size: 12px; top: 4px; padding: 3px 10px; }
   #hint { bottom: 2px; font-size: 11px; padding: 2px 8px; }
   /* la mesa deja hueco a los lados: las bolas fuera van en columna a la derecha */
@@ -350,6 +400,10 @@ input[type=range]::-moz-range-thumb {
   }
   .chip { width: 24px; height: 24px; font-size: 9px; }
   .chip span { width: 12px; height: 12px; line-height: 12px; }
+}
+
+@media (orientation: portrait) and (max-width: 480px) {
+  #btnUndo span, #btnOpts span { display: none; }
 }
 
 @media (orientation: portrait) and (max-width: 360px) {
@@ -368,6 +422,7 @@ input[type=range]::-moz-range-thumb {
 @media (orientation: landscape) and (max-height: 560px) {
   #app { grid-template-columns: minmax(0, 1fr) 250px; }
   #toolbar { padding: 6px 6px 0; gap: 4px; }
+  #toolbar .tbtn { flex-basis: auto; }
   .tbtn { min-height: 32px; padding: 0 4px; }
   .tbtn span { display: none; }
   #panel { padding: 6px 8px 8px; gap: 6px; }

@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const P = window.Pool;
+  const P = window.Pool, B = window.Bank;
   const { R, HL, HW, CW, FRAME, DT, RAILS, POCKETS } = P;
   const $ = s => document.querySelector(s);
 
@@ -9,6 +9,8 @@
   const pathColorOf = n => (n === 0 ? '#ffffff' : n === 8 ? '#cfcfcf' : colorOf(n));
   const nameOf = n => (n === 0 ? 'blanca' : `#${n}`);
   const DETAIL = { short: 2, medium: 4, full: Infinity };
+  // fuerza con la que se generan los ejercicios de cada tipo (bandas de blanca - bandas de bola)
+  const TRAIN_POWER = { '0-0': 35, '0-1': 45, '0-2': 60, '0-3': 70, '1-0': 40, '2-0': 45, '3-0': 55, '1-1': 60, '2-1': 70, '1-2': 70 };
 
   const S = {
     balls: [],
@@ -23,7 +25,13 @@
     predDirty: true,
     dirty: true,
     undo: [],
-    opts: { detail: 'full', objPaths: true, finals: true, squirt: true },
+    opts: { detail: 'full', objPaths: true, finals: true, squirt: true, mirror: true },
+    // entrenador de bandas
+    train: {
+      on: false, kind: '0-1', pocket: -1, exam: false, reveal: true,
+      solver: null, sols: [], solSpec: null, idx: 0, pending: false, at: 0,
+      gen: null, last: null, review: false, msg: '', stats: {},
+    },
   };
 
   const store = {
@@ -32,10 +40,20 @@
         const o = JSON.parse(localStorage.getItem('poolaim') || '{}');
         if (o.opts) Object.assign(S.opts, o.opts);
         if (typeof o.power === 'number') S.power = o.power;
+        if (o.train) {
+          const T = S.train;
+          if (TRAIN_POWER[o.train.kind]) T.kind = o.train.kind;
+          T.on = !!o.train.on;
+          T.exam = !!o.train.exam;
+          T.reveal = !T.exam;
+          if (o.train.stats) T.stats = o.train.stats;
+        }
       } catch (e) { /* sin almacenamiento */ }
     },
     save() {
-      try { localStorage.setItem('poolaim', JSON.stringify({ opts: S.opts, power: S.power })); } catch (e) { /* ignorar */ }
+      const T = S.train;
+      const train = { on: T.on, kind: T.kind, exam: T.exam, stats: T.stats };
+      try { localStorage.setItem('poolaim', JSON.stringify({ opts: S.opts, power: S.power, train })); } catch (e) { /* ignorar */ }
     },
   };
 
@@ -99,6 +117,12 @@
   function changed() {
     S.predDirty = true;
     S.dirty = true;
+    const T = S.train;
+    T.review = false;
+    if (T.on) {
+      T.pending = true;
+      T.at = performance.now();
+    }
     updateUI();
   }
 
@@ -291,8 +315,7 @@
     ctx.restore();
   }
 
-  function drawPrediction(alpha) {
-    const pr = S.pred;
+  function drawPrediction(alpha, pr = S.pred) {
     if (!pr) return;
     const px = 1 / V.s;
     const lim = DETAIL[S.opts.detail];
@@ -409,12 +432,148 @@
     ctx.fill();
   }
 
+  // ---------------------------------------------------------------- dibujo del entrenador
+  const SOL = '#ff5bd1', MIRROR = '#7cc7ff';
+  const labels = [];
+
+  function polyline(pts, color, width, dash) {
+    const px = 1 / V.s;
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(0,0,0,.6)';
+    ctx.lineWidth = (width + 2.5) * px;
+    ctx.stroke();
+    ctx.setLineDash(dash ? dash.map(d => d * px) : []);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width * px;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /** Solución ideal: recorrido de la blanca hasta la bola fantasma y de la bola hasta la tronera. */
+  function drawSolution(balls, sol, spec, alpha) {
+    const px = 1 / V.s, res = sol.res;
+    const cue = balls[0], obj = balls[spec.obj];
+    if (!res.contact || !obj) return;
+    const cuePts = [cue, ...res.cueRails, res.contact];
+    const objPts = [{ x: res.contact.ox, y: res.contact.oy }, ...res.objRails, POCKETS[res.pocket]];
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    if (S.opts.mirror) {
+      const m = B.mirror(balls, spec, res);
+      if (m) {
+        polyline([m.from, m.image], MIRROR, 1.4, [7, 5]);
+        ctx.beginPath();
+        ctx.arc(m.image.x, m.image.y, m.who === 0 ? R : 0.03, 0, Math.PI * 2);
+        ctx.setLineDash([4 * px, 3 * px]);
+        ctx.strokeStyle = MIRROR;
+        ctx.lineWidth = 1.5 * px;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        labels.push({ x: m.image.x, y: m.image.y, text: 'reflejo', color: MIRROR, dy: -1 });
+        if (m.geoDiamond) {
+          labels.push({ x: m.geoDiamond.pt.x, y: m.geoDiamond.pt.y, text: corner(m.geoDiamond.d, m.rail), color: MIRROR, dy: 1 });
+        }
+      }
+    }
+
+    polyline(cuePts, SOL, 2.4);
+    polyline(objPts, SOL, 2.4, [9, 6]);
+
+    // bola fantasma
+    ctx.beginPath();
+    ctx.arc(res.contact.x, res.contact.y, R, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,91,209,.18)';
+    ctx.fill();
+    ctx.strokeStyle = SOL;
+    ctx.lineWidth = 1.8 * px;
+    ctx.stroke();
+
+    // cada banda: punto de contacto y diamante al que apunta la línea de llegada
+    const legs = [];
+    res.cueRails.forEach((h, i) => legs.push([cuePts[i], h]));
+    res.objRails.forEach((h, i) => legs.push([objPts[i], h]));
+    for (const [from, hit] of legs) {
+      const ad = B.aimDiamond(from, hit, hit.rail);
+      ctx.beginPath();
+      ctx.arc(hit.x, hit.y, 3.5 * px, 0, Math.PI * 2);
+      ctx.fillStyle = SOL;
+      ctx.fill();
+      if (!ad) continue;
+      polyline([hit, ad.pt], 'rgba(255,91,209,.75)', 1.2, [2, 4]);
+      labels.push({ x: ad.pt.x, y: ad.pt.y, text: corner(ad.d, hit.rail), color: SOL });
+    }
+    ctx.restore();
+  }
+
+  function drawTraining() {
+    const T = S.train, px = 1 / V.s;
+    POCKETS.forEach((p, i) => {
+      const ox = p.kind === 'lateral' ? 0 : Math.sign(p.x) * 0.055;
+      labels.push({ x: p.x + ox, y: p.y + Math.sign(p.y) * 0.055, text: String(i + 1), color: i === T.pocket ? '#f0b443' : '#d9cdb0', pocket: true });
+    });
+    if (T.pocket >= 0) {
+      const pk = POCKETS[T.pocket];
+      ctx.beginPath();
+      ctx.arc(pk.x, pk.y, pk.draw + 0.012, 0, Math.PI * 2);
+      ctx.strokeStyle = '#f0b443';
+      ctx.lineWidth = 2.5 * px;
+      ctx.setLineDash([5 * px, 4 * px]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (T.gen) return;
+    if (T.review && T.last) {
+      // posición antes del tiro, tu tiro (blanco) y la solución (rosa)
+      for (const b of [T.last.before[0], T.last.before[T.last.spec.obj]]) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, R, 0, Math.PI * 2);
+        ctx.setLineDash([3 * px, 3 * px]);
+        ctx.strokeStyle = 'rgba(255,255,255,.8)';
+        ctx.lineWidth = 1.5 * px;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (T.last.sol) drawSolution(T.last.before, T.last.sol, T.last.spec, 1);
+      return;
+    }
+    const sol = T.reveal && T.sols[T.idx];
+    if (sol && S.balls[0].on) drawSolution(S.balls, sol, T.solSpec, T.pending || T.solver ? 0.3 : 1);
+  }
+
+  function drawLabels() {
+    const fs = Math.max(10, Math.min(13, V.s * 0.045));
+    ctx.font = `700 ${fs}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const l of labels) {
+      let [x, y] = toScreen(l.x, l.y);
+      if (l.dy) y += l.dy * fs * 1.2;
+      const w = ctx.measureText(l.text).width + 8, h = fs + 5;
+      x = Math.max(w / 2 + 2, Math.min(V.w - w / 2 - 2, x));
+      y = Math.max(h / 2 + 2, Math.min(V.h - h / 2 - 2, y));
+      ctx.fillStyle = l.pocket ? 'rgba(20,12,6,.75)' : 'rgba(5,8,7,.82)';
+      roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+      ctx.fill();
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text, x, y + 0.5);
+    }
+  }
+
   function draw() {
     screenTransform();
     ctx.clearRect(0, 0, V.w, V.h);
     worldTransform();
     drawTable();
-    if (S.pred && S.balls[0]) drawPrediction(S.animating ? 0.3 : 1);
+    const T = S.train;
+    if (T.on && T.review && T.last) drawPrediction(0.8, T.last.pred);
+    else if (S.pred && S.balls[0] && !(T.on && T.exam)) drawPrediction(S.animating ? 0.3 : 1);
+    labels.length = 0;
+    if (T.on && !S.animating) drawTraining();
     screenTransform();
     for (const b of S.balls) {
       if (!b.on) continue;
@@ -423,6 +582,10 @@
     if (!S.animating && S.balls[0].on && S.mode === 'aim') {
       worldTransform();
       drawCue();
+    }
+    if (T.on) {
+      screenTransform();
+      drawLabels();
     }
   }
 
@@ -435,6 +598,8 @@
   }
 
   function summaryHTML() {
+    const T = S.train;
+    if (T.on && T.exam) return goalText();
     const pr = S.pred;
     if (!pr) return '';
     const parts = [];
@@ -458,6 +623,7 @@
     if (!S.balls[0].on) return;
     if (S.predDirty) computePrediction();
     S.predDirty = false;
+    recordAttempt();
     pushUndo();
     P.strike(S.balls[0], S.aim, speed(), S.spinX, S.spinY, S.opts.squirt);
     S.animating = true;
@@ -482,6 +648,260 @@
       S.ballInHand = true;
     }
     changed();
+    finishAttempt();
+  }
+
+  // ---------------------------------------------------------------- entrenador de bandas
+  const objNum = () => { const o = S.balls.find(b => b.on && b.num > 0); return o ? o.num : -1; };
+  const kindOf = kind => kind.split('-').map(Number);
+  const deg = a => (a * 180) / Math.PI;
+  const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const corner = (d, rail, digits = 1) => Math.max(0, B.fromCorner(d, rail)).toFixed(digits);
+
+  function trainSpec(pocket = S.train.pocket) {
+    const [k, b] = kindOf(S.train.kind);
+    return { obj: objNum(), k, b, pocket, speed: speed(), sx: S.spinX, sy: S.spinY, squirt: S.opts.squirt };
+  }
+
+  function railName(rail) {
+    const side = V.portrait
+      ? { top: 'izquierda', bottom: 'derecha', right: 'superior', left: 'inferior' }[rail]
+      : { top: 'superior', bottom: 'inferior', right: 'derecha', left: 'izquierda' }[rail];
+    return `${B.RAILS[rail].long ? 'larga' : 'corta'} ${side}`;
+  }
+
+  /** Diamante de la primera banda de la bola que manda en el tiro: la blanca en un kick, la bola en una banda. */
+  function keyDiamond(balls, spec, res) {
+    const key = spec.k > 0 ? 0 : spec.b > 0 ? spec.obj : -1;
+    const rails = key === 0 ? res.cueRails : res.objRails;
+    if (key < 0 || !rails.length || (key !== 0 && !res.contact)) return null;
+    const from = key === 0 ? balls[0] : { x: res.contact.ox, y: res.contact.oy };
+    const ad = B.aimDiamond(from, rails[0], rails[0].rail);
+    return ad && { ...ad, rail: rails[0].rail, who: key };
+  }
+
+  function goalText() {
+    const T = S.train, [k, b] = kindOf(T.kind), o = objNum();
+    if (o < 0) return 'Coloca una bola: la de número más bajo es la objetivo';
+    const route = [k ? `blanca a ${plural(k, 'banda', 'bandas')}` : '', b ? `bola a ${plural(b, 'banda', 'bandas')}` : '']
+      .filter(Boolean).join(' + ');
+    return `Mete la ${nameOf(o)} en ${T.pocket >= 0 ? `la tronera ${T.pocket + 1}` : 'cualquier tronera'} · ${route || 'directa'}`;
+  }
+
+  const FAIL = {
+    miss: 'La blanca no llegó a tocar la bola objetivo',
+    other: 'La blanca tocó otra bola primero',
+    scratch: 'La blanca entró antes de tocar la bola',
+    jaw: 'Tocó la boca de la tronera en vez de la banda',
+  };
+
+  function attemptText(att, spec) {
+    if (att.ok) return '<span class="ok">✔ ¡Dentro!</span>';
+    let why = FAIL[att.fail];
+    if (att.fail === 'cueRails') why = `La blanca tocó ${plural(att.cueRails.length, 'banda', 'bandas')} antes de la bola (debían ser ${spec.k})`;
+    else if (att.fail === 'objRails') why = spec.b ? `La bola tocó más de ${plural(spec.b, 'banda', 'bandas')}` : 'La bola tocó banda: debía ir directa a la tronera';
+    else if (!why && att.pocket < 0) why = 'La bola no entró';
+    else if (!why && att.objRails.length !== spec.b) why = `La bola entró con ${plural(att.objRails.length, 'banda', 'bandas')} (debían ser ${spec.b})`;
+    else if (!why) why = `Entró en la tronera ${att.pocket + 1}, no en la ${spec.pocket + 1}`;
+    return `<span class="bad">✘ ${why}</span>`;
+  }
+
+  /** Al tirar: resultado exacto del tiro y la solución más cercana a tu dirección, para comparar. */
+  function recordAttempt() {
+    const T = S.train;
+    T.last = null;
+    if (!T.on || objNum() < 0) return;
+    const spec = trainSpec();
+    if (T.pending || T.solver) {
+      const it = B.solver(S.balls, spec);
+      while (!it.next(1e9));
+      T.sols = it.solutions;
+      T.solSpec = spec;
+      T.idx = 0;
+      T.solver = null;
+      T.pending = false;
+    }
+    let sol = null;
+    for (const s of T.sols) if (!sol || Math.abs(wrap(s.aim - S.aim)) < Math.abs(wrap(sol.aim - S.aim))) sol = s;
+    T.last = {
+      before: P.cloneBalls(S.balls), aim: S.aim, spec, sol, pred: S.pred,
+      att: B.attempt(S.balls, spec, S.aim), done: false, html: '',
+    };
+  }
+
+  function finishAttempt() {
+    const T = S.train, L = T.last;
+    if (!T.on || !L || L.done) return;
+    L.done = true;
+    const st = T.stats[T.kind] || (T.stats[T.kind] = { n: 0, ok: 0 });
+    st.n++;
+    if (L.att.ok) st.ok++;
+    store.save();
+    const lines = [attemptText(L.att, L.spec)];
+    if (L.sol) {
+      const da = deg(wrap(L.sol.aim - L.aim));
+      if (Math.abs(da) * 2 <= L.sol.width) lines.push('Dirección dentro del margen.');
+      else lines.push(`Corrección: gira <b>${Math.abs(da).toFixed(2)}° ${da > 0 ? '⟲' : '⟳'}</b>`);
+      const mine = keyDiamond(L.before, L.spec, L.att), ideal = keyDiamond(L.before, L.spec, L.sol.res);
+      if (mine && ideal) {
+        const who = ideal.who === 0 ? 'blanca' : 'bola';
+        lines.push(mine.rail === ideal.rail
+          ? `Tu ${who} apuntó a <b>${corner(mine.d, mine.rail, 2)}</b> · la ideal a <span class="sol">${corner(ideal.d, ideal.rail, 2)}</span> diamantes de la esquina`
+          : `Tu ${who} fue a la banda ${railName(mine.rail)}; la ideal va a la ${railName(ideal.rail)}`);
+      }
+    } else {
+      lines.push('No hay solución con esta fuerza y efecto.');
+    }
+    L.html = lines.join('<br>');
+    T.review = true;
+    if (T.exam) T.reveal = true;
+    S.dirty = true;
+    renderTrain();
+  }
+
+  function trainTick() {
+    const T = S.train;
+    if (!T.on) return;
+    if (T.gen) { genTick(); return; }
+    if (T.pending && performance.now() - T.at > 150 && !drag) {
+      T.pending = false;
+      T.solSpec = trainSpec();
+      T.solver = objNum() >= 0 && S.balls[0].on ? B.solver(S.balls, T.solSpec) : null;
+      if (!T.solver) T.sols = [];
+      renderTrain();
+    }
+    if (T.solver) {
+      if (T.solver.next(10)) {
+        T.sols = T.solver.solutions;
+        T.idx = 0;
+        T.solver = null;
+        S.dirty = true;
+      }
+      renderTrain();
+    }
+  }
+
+  function newExercise() {
+    const T = S.train;
+    if (S.animating) return;
+    if (T.gen) { T.gen = null; renderTrain(); return; }
+    S.power = TRAIN_POWER[T.kind];
+    store.save();
+    T.gen = { tries: 0, solver: null, balls: null };
+    T.solver = null;
+    T.last = null;
+    T.review = false;
+    T.msg = '';
+    updateUI();
+    renderTrain();
+  }
+
+  function genTick() {
+    const T = S.train, g = T.gen, [k, b] = kindOf(T.kind);
+    const t0 = performance.now();
+    while (T.gen && performance.now() - t0 < 12) {
+      if (!g.solver) {
+        if (++g.tries > 40) {
+          T.gen = null;
+          T.msg = 'No encontré una posición para este tiro. Prueba otra vez o cambia el tipo.';
+          break;
+        }
+        g.balls = B.randomLayout(k);
+        if (!g.balls) continue;
+        g.solver = B.solver(g.balls, { obj: 1, k, b, pocket: -1, speed: speed(), sx: 0, sy: 0, squirt: S.opts.squirt });
+      }
+      if (!g.solver.next(Math.max(1, 12 - (performance.now() - t0)))) continue;
+      const best = g.solver.solutions.find(s => s.clean && s.width >= 0.04);
+      if (!best) { g.solver = null; continue; }
+      pushUndo();
+      S.balls = g.balls;
+      const c = S.balls[0], o = S.balls[1];
+      S.aim = Math.atan2(o.y - c.y, o.x - c.x);
+      S.spinX = S.spinY = 0;
+      S.ballInHand = false;
+      S.mode = 'aim';
+      T.pocket = best.pocket;
+      T.reveal = !T.exam;
+      T.gen = null;
+      changed();
+    }
+    renderTrain();
+  }
+
+  function renderTrain() {
+    const T = S.train;
+    if (!T.on) return;
+    const st = T.stats[T.kind];
+    const lines = [];
+    if (T.gen) {
+      lines.push(`Buscando una posición… (intento ${T.gen.tries})`);
+    } else if (T.review && T.last && T.last.html) {
+      lines.push(T.last.html);
+    } else if (objNum() < 0) {
+      lines.push('Coloca una bola en la mesa o pulsa <b>Nuevo</b>. La de número más bajo es la objetivo.');
+    } else if (T.pending || T.solver) {
+      lines.push(`<b>${goalText()}</b>`, `Calculando soluciones… ${Math.round((T.solver ? T.solver.progress : 0) * 100)}%`);
+    } else if (T.msg && !T.sols.length) {
+      lines.push(T.msg);
+    } else if (!T.sols.length) {
+      lines.push(`<b>${goalText()}</b>`, 'Sin solución con esta fuerza y efecto. Prueba otra fuerza, otra tronera o mueve las bolas.');
+    } else if (!T.reveal) {
+      lines.push(`<b>${goalText()}</b>`, `Hay ${plural(T.sols.length, 'solución', 'soluciones')}. Calcula tu línea y tira, o pulsa <b>Solución</b>.`);
+    } else {
+      const sol = T.sols[T.idx], spec = T.solSpec;
+      const hw = sol.width / 2, level = hw >= 0.1 ? 'fácil' : hw >= 0.04 ? 'media' : 'difícil';
+      lines.push(`<b>Solución ${T.idx + 1}/${T.sols.length}</b> · tronera ${sol.pocket + 1} · margen ±${hw.toFixed(2)}° (${level})`);
+      const kd = keyDiamond(S.balls, spec, sol.res);
+      if (kd) {
+        lines.push(`${kd.who === 0 ? 'Apunta la blanca' : 'Manda la bola'} a <span class="sol">${corner(kd.d, kd.rail)} diamantes de la esquina</span> (banda ${railName(kd.rail)})`);
+        const m = S.opts.mirror && B.mirror(S.balls, spec, sol.res);
+        if (m && m.geoDiamond && m.realDiamond) {
+          const g = Math.max(0, B.fromCorner(m.geoDiamond.d, m.rail)), r = Math.max(0, B.fromCorner(m.realDiamond.d, m.rail));
+          lines.push(`<span class="blue">Espejo ${g.toFixed(1)}</span> · real ${r.toFixed(1)} → la banda corrige ${Math.abs(r - g).toFixed(1)} diamantes`);
+        }
+      } else {
+        lines.push('Apunta la blanca a la bola fantasma rosa.');
+      }
+    }
+    if (st && st.n && !T.gen) lines.push(`Aciertos en este tipo: ${st.ok}/${st.n}`);
+    $('#trInfo').innerHTML = lines.join('<br>');
+    $('#trSol').setAttribute('aria-pressed', String(T.reveal));
+    $('#trExam').setAttribute('aria-pressed', String(T.exam));
+    const busy = S.animating || !!T.gen;
+    $('#trNew').disabled = S.animating;
+    $('#trNew').textContent = T.gen ? 'Cancelar' : 'Nuevo';
+    $('#trNext').disabled = busy || T.sols.length < 2 || !T.reveal;
+    $('#trUse').disabled = busy || !T.sols.length;
+    $('#trRetry').disabled = busy || !T.last;
+    $('#trKind').value = T.kind;
+    $('#trPocket').value = String(T.pocket);
+    $('#summary').innerHTML = summaryHTML();
+  }
+
+  function setTrain(on) {
+    const T = S.train;
+    T.on = on;
+    T.gen = T.solver = T.last = null;
+    T.sols = [];
+    T.review = false;
+    $('#trainer').hidden = !on;
+    $('#btnTrain').setAttribute('aria-pressed', String(on));
+    store.save();
+    changed();
+    renderTrain();
+  }
+
+  function retry() {
+    const T = S.train, L = T.last;
+    if (!L || S.animating || T.gen) return;
+    pushUndo();
+    S.balls = P.cloneBalls(L.before);
+    S.aim = L.aim;
+    S.ballInHand = false;
+    S.mode = 'aim';
+    if (T.exam) T.reveal = false;
+    changed();
   }
 
   // ---------------------------------------------------------------- bucle
@@ -505,6 +925,7 @@
       S.dirty = true;
       $('#summary').innerHTML = summaryHTML();
     }
+    if (!S.animating) trainTick();
     if (S.dirty) {
       draw();
       S.dirty = false;
@@ -814,7 +1235,59 @@
     else hint.textContent = '';
     renderTray();
     drawSpin();
+    $('#btnTrain').disabled = S.animating;
+    renderTrain();
   }
+
+  // ---------------------------------------------------------------- controles del entrenador
+  $('#btnTrain').addEventListener('click', () => { if (!S.animating) setTrain(!S.train.on); });
+  $('#trKind').addEventListener('change', e => {
+    S.train.kind = e.target.value;
+    S.train.sols = [];
+    S.train.last = null;
+    S.train.msg = '';
+    store.save();
+    changed();
+  });
+  $('#trPocket').addEventListener('change', e => {
+    S.train.pocket = Number(e.target.value);
+    changed();
+  });
+  $('#trNew').addEventListener('click', newExercise);
+  $('#trSol').addEventListener('click', () => {
+    S.train.reveal = !S.train.reveal;
+    S.dirty = true;
+    renderTrain();
+  });
+  $('#trExam').addEventListener('click', () => {
+    const T = S.train;
+    T.exam = !T.exam;
+    T.reveal = !T.exam;
+    store.save();
+    S.dirty = true;
+    renderTrain();
+  });
+  $('#trNext').addEventListener('click', () => {
+    const T = S.train;
+    if (T.sols.length < 2) return;
+    T.idx = (T.idx + 1) % T.sols.length;
+    S.dirty = true;
+    renderTrain();
+  });
+  $('#trUse').addEventListener('click', () => {
+    const T = S.train, sol = T.sols[T.idx];
+    if (!sol || S.animating) return;
+    S.aim = sol.aim;
+    changed();
+  });
+  $('#trRetry').addEventListener('click', retry);
+
+  const tipsCard = $('#tips');
+  $('#trTips').addEventListener('click', e => { e.stopPropagation(); tipsCard.hidden = !tipsCard.hidden; });
+  $('#tipsClose').addEventListener('click', () => { tipsCard.hidden = true; });
+  document.addEventListener('pointerdown', e => {
+    if (!tipsCard.hidden && !tipsCard.contains(e.target) && e.target !== $('#trTips')) tipsCard.hidden = true;
+  });
 
   // ---------------------------------------------------------------- teclado
   window.addEventListener('keydown', e => {
@@ -832,6 +1305,9 @@
     else if (e.key === ' ' || e.key === 'Enter') { if (e.target === document.body || e.target === cv) { e.preventDefault(); shoot(); } }
     else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
     else if (e.key === 'm' || e.key === 'M') { if (!S.animating) { S.mode = S.mode === 'move' ? 'aim' : 'move'; changed(); } }
+    else if (e.key === 'b' || e.key === 'B') { if (!S.animating) setTrain(!S.train.on); }
+    else if ((e.key === 'n' || e.key === 'N') && S.train.on) newExercise();
+    else if ((e.key === 'r' || e.key === 'R') && S.train.on) retry();
   });
 
   // ---------------------------------------------------------------- inicio
@@ -840,9 +1316,11 @@
   bindOpt('#optObj', 'objPaths');
   bindOpt('#optFinals', 'finals');
   bindOpt('#optSquirt', 'squirt');
+  bindOpt('#optMirror', 'mirror');
   new ResizeObserver(() => { resize(); drawSpin(); }).observe(stage);
   new ResizeObserver(drawSpin).observe(spinCv);
   resize();
   rack('8');
+  if (S.train.on) setTrain(true);
   requestAnimationFrame(frame);
 })();
